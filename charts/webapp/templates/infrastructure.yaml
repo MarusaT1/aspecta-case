@@ -1,0 +1,151 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "webapp.fullname" . }}-backend-sa
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "webapp.fullname" . }}-frontend-sa
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "webapp.fullname" . }}-backend-config
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+data:
+  DB_HOST: {{ .Values.backend.env.dbHost | quote }}
+  APP_ENV: {{ .Values.backend.env.appEnv | quote }}
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "webapp.fullname" . }}-backend-secret
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  DB_PASSWORD: "Password135"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "webapp.fullname" . }}-backend
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+spec:
+  revisionHistoryLimit: 1
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "webapp.selectorLabels" (dict "root" . "component" "backend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "webapp.selectorLabels" (dict "root" . "component" "backend") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "webapp.fullname" . }}-backend-sa
+      containers:
+      - name: backend
+        image: "{{ .Values.global.registry }}/{{ .Values.global.username }}/{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+        envFrom:
+        - configMapRef:
+            name: {{ include "webapp.fullname" . }}-backend-config
+        - secretRef:
+            name: {{ include "webapp.fullname" . }}-backend-secret
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "webapp.fullname" . }}-backend-service
+spec:
+  selector:
+    {{- include "webapp.selectorLabels" (dict "root" . "component" "backend") | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "webapp.fullname" . }}-frontend
+  labels:
+    {{- include "webapp.labels" . | nindent 4 }}
+spec:
+  revisionHistoryLimit: 1
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "webapp.selectorLabels" (dict "root" . "component" "frontend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "webapp.selectorLabels" (dict "root" . "component" "frontend") | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "webapp.fullname" . }}-frontend-sa
+      containers:
+        - name: frontend
+          image: "{{ .Values.global.registry }}/{{ .Values.global.username }}/{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "webapp.fullname" . }}-frontend-service
+spec:
+  selector:
+    {{- include "webapp.selectorLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "webapp.fullname" . }}-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "webapp.fullname" . }}-frontend-service
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "webapp.fullname" . }}-backend-policy
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/name: frontend

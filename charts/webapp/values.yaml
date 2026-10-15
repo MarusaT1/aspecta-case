@@ -1,0 +1,21 @@
+global:
+  registry: docker.io
+  username: marusat1
+
+backend:
+  replicaCount: 2
+  image:
+    repository: backend
+    tag: 0eab0346327500be52256eb9971aaf6547d6635b
+  env:
+    dbHost: "db.internal"
+    appEnv: "staging"
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: frontend
+    tag: 0eab0346327500be52256eb9971aaf6547d6635b
+
+ingress:
+  host: "staging.webapp.local"

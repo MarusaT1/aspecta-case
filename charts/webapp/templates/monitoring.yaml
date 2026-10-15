@@ -1,0 +1,15 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "webapp.fullname" . }}-alerts
+spec:
+  groups:
+  - name: web.rules
+    rules:
+    - alert: FrontendOutage
+      expr: up{app.kubernetes.io/name="frontend"} == 0
+      for: 1m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Outage detected for Frontend pod!"
