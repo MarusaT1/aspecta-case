@@ -6,7 +6,7 @@ backend:
   replicaCount: 2
   image:
     repository: backend
-    tag: 0eab0346327500be52256eb9971aaf6547d6635b
+    tag: e9eed0a21e0871da3acd89ee89faa3daafad7097
   env:
     dbHost: "db.internal"
     appEnv: "staging"
@@ -15,7 +15,7 @@ frontend:
   replicaCount: 2
   image:
     repository: frontend
-    tag: 0eab0346327500be52256eb9971aaf6547d6635b
+    tag: e9eed0a21e0871da3acd89ee89faa3daafad7097
 
 ingress:
   host: "staging.webapp.local"
